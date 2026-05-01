@@ -16,7 +16,6 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
-/* Title */
 .title {
     font-family: 'Cinzel', serif;
     font-size: 34px;
@@ -29,7 +28,6 @@ body {
     margin-bottom: 20px;
 }
 
-/* GRID */
 .grid {
     display: grid;
     grid-template-columns: repeat(4, 90px);
@@ -62,7 +60,6 @@ body {
     box-shadow:0 0 12px rgba(212,168,67,0.4);
 }
 
-/* PANEL */
 .panel {
     background:#13101a;
     padding:20px;
@@ -80,7 +77,6 @@ body {
     color:#d4a843;
 }
 
-/* Buttons */
 .stButton>button {
     background: linear-gradient(135deg,#3a1e6e,#5a2e9e);
     color:white;
@@ -106,13 +102,13 @@ class World:
 # ---------------- AGENT ----------------
 class Agent:
     def __init__(self):
-        self.r, self.c = 1,1
+        self.r, self.c = 1, 1
         self.visited = {(1,1)}
         self.danger = set()
         self.percepts = ["None"]
         self.hasGold = False
 
-# ---------------- INIT ----------------
+# ---------------- INIT GAME ----------------
 def init_game():
     st.session_state.world = World()
     st.session_state.agent = Agent()
@@ -120,8 +116,18 @@ def init_game():
     st.session_state.game_over = False
     st.session_state.status = "EXPLORING"
 
+# ---------------- SAFE SESSION INIT ----------------
 if "world" not in st.session_state:
     init_game()
+
+if "status" not in st.session_state:
+    st.session_state.status = "EXPLORING"
+
+if "game_over" not in st.session_state:
+    st.session_state.game_over = False
+
+if "steps" not in st.session_state:
+    st.session_state.steps = 0
 
 world = st.session_state.world
 agent = st.session_state.agent
@@ -130,36 +136,38 @@ agent = st.session_state.agent
 st.markdown('<div class="title">WUMPUS WORLD</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Knowledge-Based Agent</div>', unsafe_allow_html=True)
 
-# Status Badge
-if st.session_state.status == "WIN":
+# ---------------- STATUS ----------------
+status = st.session_state.get("status", "EXPLORING")
+
+if status == "WIN":
     st.success("🏆 VICTORY")
-elif st.session_state.status == "DEAD":
+elif status == "DEAD":
     st.error("💀 GAME OVER")
 else:
     st.info("🟢 EXPLORING")
 
-col1, col2 = st.columns([2,1])
+col1, col2 = st.columns([2, 1])
 
 # ---------------- GRID ----------------
 with col1:
     grid_html = '<div class="grid">'
 
     for r in range(ROWS, 0, -1):
-        for c in range(1, COLS+1):
+        for c in range(1, COLS + 1):
 
             cls = "cell unknown"
             text = ""
 
-            if (r,c) == (agent.r, agent.c):
+            if (r, c) == (agent.r, agent.c):
                 cls = "cell agent"
                 text = "⚔"
-            elif (r,c) in agent.visited:
+            elif (r, c) in agent.visited:
                 cls = "cell safe"
-            elif (r,c) in agent.danger:
+            elif (r, c) in agent.danger:
                 cls = "cell danger"
                 text = "?"
 
-            if (r,c) == world.gold and agent.hasGold:
+            if (r, c) == world.gold and agent.hasGold:
                 cls = "cell gold"
                 text = "✦"
 
@@ -193,18 +201,7 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("---")
-
-    st.markdown("**Legend**")
-    st.markdown("""
-    🟪 Agent  
-    🟩 Safe  
-    🟫 Unknown  
-    🟥 Danger  
-    🟨 Gold  
-    """)
-
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- BUTTONS ----------------
 colA, colB = st.columns(2)
@@ -218,10 +215,10 @@ with colB:
     if st.button("➡ Step Agent") and not st.session_state.game_over:
 
         moves = []
-        for dr,dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-            nr, nc = agent.r+dr, agent.c+dc
+        for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+            nr, nc = agent.r + dr, agent.c + dc
             if 1 <= nr <= ROWS and 1 <= nc <= COLS:
-                moves.append((nr,nc))
+                moves.append((nr, nc))
 
         move = random.choice(moves)
 
