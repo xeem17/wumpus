@@ -5,7 +5,7 @@ st.set_page_config(layout="wide")
 
 ROWS, COLS = 4, 4
 
-# ---------------- DARK THEME CSS ----------------
+# ---------------- CSS ----------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Inter:wght@400;500&display=swap');
@@ -16,6 +16,7 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
+/* Title */
 .title {
     font-family: 'Cinzel', serif;
     font-size: 34px;
@@ -42,16 +43,9 @@ body {
     align-items:center;
     justify-content:center;
     font-size:20px;
-    position: relative;
     border:1px solid #2a2038;
-    transition: 0.2s;
 }
 
-.cell:hover {
-    transform: scale(1.05);
-}
-
-/* STATES */
 .agent {
     background:#2a1a40;
     border-color:#6a3acc;
@@ -59,26 +53,16 @@ body {
     color:#fff;
 }
 
-.safe {
-    background:#1a2820;
-}
-
-.unknown {
-    background:#1c1628;
-}
-
-.danger {
-    background:#2a1515;
-    color:#ff8080;
-}
-
+.safe { background:#1a2820; }
+.unknown { background:#1c1628; }
+.danger { background:#2a1515; color:#ff8080; }
 .gold {
     background:#2a2210;
     border-color:#8c7030;
     box-shadow:0 0 12px rgba(212,168,67,0.4);
 }
 
-/* SIDE PANEL */
+/* PANEL */
 .panel {
     background:#13101a;
     padding:20px;
@@ -87,8 +71,7 @@ body {
 }
 
 .metric {
-    font-size:14px;
-    margin-bottom:10px;
+    margin-bottom: 8px;
     color:#b8a8c8;
 }
 
@@ -97,7 +80,7 @@ body {
     color:#d4a843;
 }
 
-/* BUTTONS */
+/* Buttons */
 .stButton>button {
     background: linear-gradient(135deg,#3a1e6e,#5a2e9e);
     color:white;
@@ -119,7 +102,6 @@ class World:
         self.pits = {(2,3)}
         self.wumpus = (3,3)
         self.gold = (4,4)
-        self.wumpusAlive = True
 
 # ---------------- AGENT ----------------
 class Agent:
@@ -135,8 +117,8 @@ def init_game():
     st.session_state.world = World()
     st.session_state.agent = Agent()
     st.session_state.steps = 0
-    st.session_state.message = ""
     st.session_state.game_over = False
+    st.session_state.status = "EXPLORING"
 
 if "world" not in st.session_state:
     init_game()
@@ -147,6 +129,14 @@ agent = st.session_state.agent
 # ---------------- HEADER ----------------
 st.markdown('<div class="title">WUMPUS WORLD</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Knowledge-Based Agent</div>', unsafe_allow_html=True)
+
+# Status Badge
+if st.session_state.status == "WIN":
+    st.success("🏆 VICTORY")
+elif st.session_state.status == "DEAD":
+    st.error("💀 GAME OVER")
+else:
+    st.info("🟢 EXPLORING")
 
 col1, col2 = st.columns([2,1])
 
@@ -178,15 +168,41 @@ with col1:
     grid_html += "</div>"
     st.markdown(grid_html, unsafe_allow_html=True)
 
-# ---------------- PANEL ----------------
+# ---------------- SIDE PANEL ----------------
 with col2:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
 
-    st.markdown(f'<div class="metric">Steps: <span class="value">{st.session_state.steps}</span></div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="metric">Position: <span class="value">({agent.r},{agent.c})</span></div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="metric">Percepts: <span class="value">{", ".join(agent.percepts)}</span></div>', unsafe_allow_html=True)
+    st.markdown(f"<div class='metric'>Steps: <span class='value'>{st.session_state.steps}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric'>Position: <span class='value'>({agent.r},{agent.c})</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric'>Arrow: <span class='value'>READY</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric'>Gold: <span class='value'>{'FOUND' if agent.hasGold else 'Not Found'}</span></div>", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+
+    st.markdown("**Current Percepts**")
+    st.markdown(f"""
+    <div style="
+        background:#0d0a14;
+        border:1px solid #2a2038;
+        padding:10px;
+        border-radius:8px;
+        color:#a898c8;
+        font-style:italic;
+    ">
+        {", ".join(agent.percepts)}
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    st.markdown("**Legend**")
+    st.markdown("""
+    🟪 Agent  
+    🟩 Safe  
+    🟫 Unknown  
+    🟥 Danger  
+    🟨 Gold  
+    """)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -216,15 +232,18 @@ with colB:
         if move in world.pits:
             agent.percepts = ["Fell into Pit"]
             st.session_state.game_over = True
+            st.session_state.status = "DEAD"
 
         elif move == world.wumpus:
             agent.percepts = ["Eaten by Wumpus"]
             st.session_state.game_over = True
+            st.session_state.status = "DEAD"
 
         elif move == world.gold:
             agent.hasGold = True
             agent.percepts = ["Gold Found!"]
             st.session_state.game_over = True
+            st.session_state.status = "WIN"
 
         else:
             agent.percepts = ["Exploring..."]
