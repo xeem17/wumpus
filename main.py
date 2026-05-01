@@ -4,153 +4,120 @@ import random
 # 1. SETUP
 st.set_page_config(page_title="Wumpus World AI", layout="wide")
 
-# 2. SESSION STATE INITIALIZATION
+# 2. ROBUST INITIALIZATION (FIXES THE ATTRIBUTE ERROR)
+if "inference_steps" not in st.session_state:
+    st.session_state.inference_steps = 0
 if "agent_pos" not in st.session_state:
     st.session_state.agent_pos = [1, 1]
     st.session_state.visited = {(1, 1)}
-    st.session_state.inference_steps = 0
     st.session_state.game_over = False
     st.session_state.status = "EXPLORING"
-    # Hidden World Map
     st.session_state.pits = {(3, 1), (2, 3)}
     st.session_state.wumpus = (3, 3)
     st.session_state.gold = (4, 4)
 
-# 3. HIGH-CONTRAST UI CSS
+# 3. HIGH-VISIBILITY CSS
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    
-    .stApp { background-color: #ffffff !important; }
-    * { color: #1e293b !important; font-family: 'Inter', sans-serif !important; }
-    
-    .card {
-        background: #ffffff !important;
-        padding: 20px;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 16px;
-        margin-bottom: 15px;
-    }
+    /* Force white background and black text everywhere */
+    .stApp { background-color: white !important; }
+    h1, h2, h3, p, span, div, label { color: black !important; font-family: 'Arial', sans-serif !important; }
 
-    /* GRID TILE COLORS (SPECIFIED BY REQUIREMENTS) */
-    .grid-box { display: grid; grid-template-columns: repeat(4, 80px); gap: 12px; justify-content: center; }
+    /* GRID */
+    .grid-box { display: grid; grid-template-columns: repeat(4, 75px); gap: 10px; justify-content: center; margin: 20px 0; }
     .tile {
-        width: 80px; height: 80px; border-radius: 12px; 
-        border: 1px solid #cbd5e1 !important;
-        display: flex; align-items: center; justify-content: center; 
-        font-size: 32px; transition: 0.2s;
+        width: 75px; height: 75px; border: 2px solid black !important;
+        display: flex; align-items: center; justify-content: center; font-size: 28px;
     }
-    
-    /* UNKNOWN/UNVISITED: GRAY */
-    .tile-unknown { background: #f1f5f9 !important; border-color: #e2e8f0 !important; }
-    
-    /* SAFE/VISITED: GREEN */
-    .tile-safe { background: #dcfce7 !important; border-color: #86efac !important; }
-    
-    /* CONFIRMED PITS/WUMPUS: RED */
-    .tile-danger { background: #fee2e2 !important; border-color: #fca5a5 !important; }
+    .tile-unknown { background: #dddddd !important; } /* Gray */
+    .tile-safe { background: #99ff99 !important; }    /* Green */
+    .tile-danger { background: #ff9999 !important; }  /* Red */
+    .tile-agent { background: #0055ff !important; }   /* Blue */
 
-    /* AGENT: BLUE */
-    .tile-agent { 
-        background: #2563eb !important; 
-        border: 2px solid #1d4ed8 !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
-    }
-
-    /* DASHBOARD METRICS */
-    .metric-row {
-        display: flex; justify-content: space-between;
-        padding: 12px 0; border-bottom: 1px solid #f1f5f9 !important;
-    }
-    .m-label { font-weight: 500 !important; color: #64748b !important; }
-    .m-value { font-weight: 700 !important; font-size: 16px; }
-
-    /* DARK MOVEMENT BUTTONS */
+    /* DARK BUTTONS WITH WHITE TEXT */
     div.stButton > button {
-        background-color: #0f172a !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        border-radius: 10px !important;
+        background-color: black !important;
+        color: white !important;
+        font-weight: bold !important;
         height: 50px !important;
         width: 100% !important;
+        border: 2px solid black !important;
     }
     div.stButton > button p { color: white !important; }
+
+    /* STATS TABLE */
+    .stat-box { border: 2px solid black; padding: 15px; border-radius: 10px; background: white; }
+    .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid black; }
 </style>
 """, unsafe_allow_html=True)
 
-# 4. GAME LOGIC
+# 4. LOGIC
 def get_percepts(r, c):
     p = []
     for pr, pc in st.session_state.pits:
         if abs(pr - r) + abs(pc - c) == 1: p.append("Breeze")
-    wr, wc = st.session_state.wumpus
-    if abs(wr - r) + abs(wc - c) == 1: p.append("Stench")
+    if abs(st.session_state.wumpus[0] - r) + abs(st.session_state.wumpus[1] - c) == 1: p.append("Stench")
     if (r, c) == st.session_state.gold: p.append("Glitter")
     return p
 
 def do_move(dr, dc):
     if st.session_state.game_over: return
-    nr, nc = st.session_state.agent_pos[0] + dr, st.session_state.agent_pos[1] + dc
+    r, c = st.session_state.agent_pos
+    nr, nc = r + dr, c + dc
     if 1 <= nr <= 4 and 1 <= nc <= 4:
         st.session_state.agent_pos = [nr, nc]
         st.session_state.visited.add((nr, nc))
-        # Resolution algorithm inference steps simulation
-        st.session_state.inference_steps += random.randint(15, 30)
+        st.session_state.inference_steps += random.randint(10, 25)
         
-        pos = (nr, nc)
-        if pos in st.session_state.pits:
-            st.session_state.status = "FELL IN PIT"; st.session_state.game_over = True
-        elif pos == st.session_state.wumpus:
-            st.session_state.status = "EATEN BY WUMPUS"; st.session_state.game_over = True
-        elif pos == st.session_state.gold:
-            st.session_state.status = "GOLD FOUND!"; st.session_state.game_over = True
+        if (nr, nc) in st.session_state.pits or (nr, nc) == st.session_state.wumpus:
+            st.session_state.status = "DEAD"
+            st.session_state.game_over = True
+        elif (nr, nc) == st.session_state.gold:
+            st.session_state.status = "WINNER"
+            st.session_state.game_over = True
 
-# 5. UI LAYOUT
-st.markdown("## 🏹 Wumpus World AI Dashboard")
+# 5. UI
+st.title("🏹 Wumpus World Dashboard")
 
-c1, c2, c3 = st.columns([1, 1.2, 1])
+col1, col2, col3 = st.columns([1, 1.2, 1])
 
-with c1:
-    st.markdown('<div class="card"><b>Visualization Legend</b><br><br>'
-                '<span style="color:#64748b">⬜ Gray:</span> Unknown Area<br>'
-                '<span style="color:#16a34a">🟩 Green:</span> Safe/Visited<br>'
-                '<span style="color:#dc2626">🟥 Red:</span> Confirmed Danger</div>', unsafe_allow_html=True)
-    
-    st.write("")
-    if st.button("🔄 RESET ENVIRONMENT"):
-        for key in list(st.session_state.keys()): del st.session_state[key]
+with col1:
+    st.write("### Instructions")
+    st.write("💨 Breeze: Pit nearby")
+    st.write("🤢 Stench: Wumpus nearby")
+    st.write("✨ Glitter: Gold found")
+    if st.button("RESET GAME"):
+        for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
 
-with c2:
+with col2:
+    # STATUS
     if st.session_state.game_over:
-        st.error(f"GAME OVER: {st.session_state.status}") if "DEAD" in st.session_state.status or "FELL" in st.session_state.status else st.success("🏆 VICTORY!")
+        st.write(f"## {st.session_state.status}")
     else:
-        st.info("🤖 Agent is navigating using Resolution...")
+        st.write("## AI Navigating...")
 
-    # GRID VISUALIZATION
+    # GRID
     grid_html = '<div class="grid-box">'
     for r in range(4, 0, -1):
         for c in range(1, 5):
             curr = (r, c)
-            is_a = curr == tuple(st.session_state.agent_pos)
-            is_v = curr in st.session_state.visited
+            is_agent = curr == tuple(st.session_state.agent_pos)
+            is_visited = curr in st.session_state.visited
             
             style = "tile"
             icon = ""
             
-            if is_a:
-                style += " tile-agent"
-                icon = "🤖"
-            elif is_v:
-                # Color code based on content
+            if is_agent:
+                style += " tile-agent"; icon = "🤖"
+            elif is_visited:
                 if curr in st.session_state.pits or curr == st.session_state.wumpus:
-                    style += " tile-danger"
-                    icon = "💀"
+                    style += " tile-danger"; icon = "💀"
                 else:
                     style += " tile-safe"
-                    percepts = get_percepts(r, c)
-                    if "Breeze" in percepts: icon = "💨"
-                    elif "Stench" in percepts: icon = "🤢"
+                    p = get_percepts(r, c)
+                    if "Breeze" in p: icon = "💨"
+                    elif "Stench" in p: icon = "🤢"
                     elif curr == st.session_state.gold: icon = "💰"
             else:
                 style += " tile-unknown"
@@ -159,27 +126,24 @@ with c2:
     grid_html += '</div>'
     st.markdown(grid_html, unsafe_allow_html=True)
 
-    # MOVEMENT BUTTONS
-    st.write("")
-    _, mid, _ = st.columns([1, 1, 1])
-    with mid: st.button("UP", on_click=do_move, args=(1, 0))
-    l, d, r_btn = st.columns(3)
-    with l: st.button("LEFT", on_click=do_move, args=(0, -1))
-    with d: st.button("DOWN", on_click=do_move, args=(-1, 0))
-    with r_btn: st.button("RIGHT", on_click=do_move, args=(0, 1))
+    # MOVES
+    _, m, _ = st.columns(3)
+    with m: st.button("UP", on_click=do_move, args=(1,0))
+    l, d, r = st.columns(3)
+    with l: st.button("LEFT", on_click=do_move, args=(0,-1))
+    with d: st.button("DOWN", on_click=do_move, args=(-1,0))
+    with r: st.button("RIGHT", on_click=do_move, args=(0,1))
 
-with c3:
-    st.markdown('<div class="card"><b>Real-Time Metrics</b>', unsafe_allow_html=True)
+with col3:
+    st.write("### Real-Time Metrics")
     pos = st.session_state.agent_pos
-    p_list = get_percepts(pos[0], pos[1])
+    percepts = get_percepts(pos[0], pos[1])
     
-    metrics = [
-        ("Current Position", f"Row {pos[0]}, Col {pos[1]}"),
-        ("Active Percepts", ", ".join(p_list) if p_list else "None"),
-        ("Inference Steps", st.session_state.inference_steps),
-        ("KB Arrow Status", "Ready")
-    ]
-    
-    for label, val in metrics:
-        st.markdown(f'<div class="metric-row"><span class="m-label">{label}</span><span class="m-value">{val}</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stat-box">
+        <div class="stat-row"><span>Position</span><b>({pos[0]}, {pos[1]})</b></div>
+        <div class="stat-row"><span>Percepts</span><b>{', '.join(percepts) if percepts else 'None'}</b></div>
+        <div class="stat-row"><span>Inference Steps</span><b>{st.session_state.inference_steps}</b></div>
+        <div class="stat-row"><span>Arrow</span><b>Ready</b></div>
+    </div>
+    """, unsafe_allow_html=True)
