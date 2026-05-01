@@ -1,236 +1,138 @@
 import streamlit as st
 import random
 
-# --- CONFIG ---
-st.set_page_config(page_title="Wumpus World Pro", layout="wide")
+# 1. SET CONFIG
+st.set_page_config(page_title="Wumpus World", layout="wide")
 
-ROWS, COLS = 4, 4
-
-# --- CSS LIGHT MODE ---
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    html, body, [class*="st-"] {
-        font-family: 'Inter', sans-serif;
-        background-color: #f8fafc;
-        color: #1e293b;
-    }
-
-    .main-title {
-        font-size: 32px;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 20px;
-        text-align: center;
-    }
-
-    /* Column Containers */
-    .side-panel {
-        background: white;
-        padding: 24px;
-        border-radius: 16px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-
-    /* The Metrics Table (Matching the Screenshot) */
-    .metric-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 12px 0;
-        border-bottom: 1px dotted #e2e8f0;
-        font-size: 16px;
-    }
-    .metric-label { color: #64748b; font-weight: 400; }
-    .metric-value { color: #1e293b; font-weight: 600; }
-
-    /* Grid System */
-    .wumpus-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        max-width: 500px;
-        margin: auto;
-    }
-
-    .cell {
-        aspect-ratio: 1/1;
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        background: white;
-        border: 2px solid #f1f5f9;
-        transition: all 0.2s;
-    }
-
-    .cell-visited { background: #f1f5f9; border-color: #e2e8f0; }
-    .cell-agent { background: #3b82f6 !important; border-color: #2563eb; color: white; transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3); }
-    .cell-pit { background: #fee2e2 !important; border-color: #fecaca; }
-    .cell-wumpus { background: #f3e8ff !important; border-color: #e9d5ff; }
-    .cell-gold { background: #fef9c3 !important; border-color: #fef08a; }
-    
-    .percept-icon { font-size: 14px; margin-top: 4px; }
-
-    /* Button Styling */
-    .stButton>button {
-        background: #1e293b !important;
-        color: white !important;
-        border-radius: 8px;
-        border: none;
-        width: 100%;
-        transition: transform 0.1s;
-    }
-    .stButton>button:hover { transform: translateY(-2px); background: #334155 !important; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- GAME LOGIC ---
-class World:
-    def __init__(self):
-        self.pits = {(2, 3), (3, 1)}
-        self.wumpus = (3, 3)
-        self.gold = (4, 4)
-
-class Agent:
-    def __init__(self):
-        self.r, self.c = 1, 1
-        self.visited = {(1, 1)}
-        self.steps = 0
-        self.kb_clauses = 14
-
-def init_game():
-    st.session_state.world = World()
-    st.session_state.agent = Agent()
+# 2. INITIALIZE SESSION STATE (FIXES YOUR ERROR)
+if "world" not in st.session_state:
+    st.session_state.world = {"pits": {(2, 3), (3, 1)}, "wumpus": (3, 3), "gold": (4, 4)}
+    st.session_state.agent = {"r": 1, "c": 1, "visited": {(1, 1)}, "steps": 0, "kb": 14}
     st.session_state.game_over = False
     st.session_state.status = "EXPLORING"
 
-if "world" not in st.session_state:
-    init_game()
-
+# Short aliases
 w = st.session_state.world
 a = st.session_state.agent
 
+# 3. CSS LIGHT MODE
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    html, body, [class*="st-"] { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+    
+    .panel { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    
+    /* Metrics Table Style */
+    .metric-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dotted #e2e8f0; font-size: 15px; }
+    .metric-label { color: #64748b; }
+    .metric-value { color: #1e293b; font-weight: 600; }
+
+    /* Grid */
+    .wumpus-grid { display: grid; grid-template-columns: repeat(4, 75px); gap: 8px; justify-content: center; }
+    .cell { width: 75px; height: 75px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: white; border: 1px solid #e2e8f0; }
+    .cell-visited { background: #f1f5f9; }
+    .cell-agent { background: #3b82f6 !important; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+    
+    /* Buttons */
+    .stButton>button { width: 100%; border-radius: 6px; height: 40px; font-weight: 600; }
+</style>
+""", unsafe_allow_html=True)
+
+# 4. GAME FUNCTIONS
 def get_percepts(r, c):
     p = []
-    for pr, pc in w.pits:
+    for pr, pc in w["pits"]:
         if abs(pr - r) + abs(pc - c) == 1: p.append("Breeze")
-    if abs(w.wumpus[0] - r) + abs(w.wumpus[1] - c) == 1: p.append("Stench")
-    if (r, c) == w.gold: p.append("Glitter")
+    if abs(w["wumpus"][0] - r) + abs(w["wumpus"][1] - c) == 1: p.append("Stench")
+    if (r, c) == w["gold"]: p.append("Glitter")
     return p
 
 def move_agent(dr, dc):
     if st.session_state.game_over: return
-    new_r, new_c = a.r + dr, a.c + dc
-    if 1 <= new_r <= ROWS and 1 <= new_c <= COLS:
-        a.r, a.c = new_r, new_c
-        a.visited.add((a.r, a.c))
-        a.steps += 1
-        a.kb_clauses += random.randint(2, 5) # Simulating logic growth
+    nr, nc = a["r"] + dr, a["c"] + dc
+    if 1 <= nr <= 4 and 1 <= nc <= 4:
+        a["r"], a["c"] = nr, nc
+        a["visited"].add((nr, nc))
+        a["steps"] += 1
+        a["kb"] += random.randint(1, 3)
         
-        if (a.r, a.c) in w.pits or (a.r, a.c) == w.wumpus:
+        if (nr, nc) in w["pits"] or (nr, nc) == w["wumpus"]:
+            st.session_state.status = "DEAD"
             st.session_state.game_over = True
-            st.session_state.status = "GAME OVER"
-        elif (a.r, a.c) == w.gold:
+        elif (nr, nc) == w["gold"]:
+            st.session_state.status = "WIN"
             st.session_state.game_over = True
-            st.session_state.status = "VICTORY"
 
-# --- UI LAYOUT ---
-st.markdown('<div class="main-title">WUMPUS WORLD AI</div>', unsafe_allow_html=True)
+# 5. UI LAYOUT
+st.title("🏹 Wumpus World AI")
 
-col_inst, col_grid, col_stats = st.columns([1, 1.5, 1])
+col_left, col_mid, col_right = st.columns([1, 1.2, 1])
 
-# --- LEFT: INSTRUCTIONS ---
-with col_inst:
-    st.markdown('<div class="side-panel">', unsafe_allow_html=True)
-    st.subheader("How to Play")
-    st.markdown("""
-    - **Goal:** Find the Gold (💰) and return safely.
-    - **Pits (🕳️):** Avoid them! You'll feel a **Breeze** (💨) nearby.
-    - **Wumpus (👾):** Avoid it! You'll smell a **Stench** (🤢) nearby.
-    - **Movement:** Use the D-Pad buttons under the grid to navigate.
-    - **Knowledge:** Every step updates the agent's Knowledge Base.
-    """)
-    if st.button("🔄 Reset Game"):
-        init_game()
+with col_left:
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.subheader("Instructions")
+    st.write("Find the Gold (💰) and avoid Pits (🕳️) or the Wumpus (👾).")
+    st.write("💨 Breeze = Pit nearby")
+    st.write("🤢 Stench = Wumpus nearby")
+    if st.button("🔄 New Game"):
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- CENTER: GRID ---
-with col_grid:
-    # Game Status Banner
-    if st.session_state.status == "VICTORY":
-        st.success("🏆 Goal Reached! Victory!")
-    elif st.session_state.status == "GAME OVER":
-        st.error("💀 The Agent has perished.")
-    else:
-        st.info("🤖 Agent is exploring the cave...")
+with col_mid:
+    # Status Alert
+    if st.session_state.status == "WIN": st.success("🏆 VICTORY!")
+    elif st.session_state.status == "DEAD": st.error("💀 GAME OVER")
+    else: st.info("🤖 Exploring...")
 
+    # Grid
     grid_html = '<div class="wumpus-grid">'
-    for r in range(ROWS, 0, -1):
-        for c in range(1, COLS + 1):
-            is_agent = (r, c) == (a.r, a.c)
-            is_visited = (r, c) in a.visited
+    for r in range(4, 0, -1):
+        for c in range(1, 5):
+            is_agent = (r, c) == (a["r"], a["c"])
+            is_visited = (r, c) in a["visited"]
             
             cls = "cell"
             content = ""
-            
             if is_agent:
-                cls += " cell-agent"
-                content = "🤖"
-            elif not is_visited:
-                content = "" # Fog of war
-            else:
+                cls += " cell-agent"; content = "🤖"
+            elif is_visited:
                 cls += " cell-visited"
-                if (r,c) in w.pits: cls += " cell-pit"; content = "🕳️"
-                elif (r,c) == w.wumpus: cls += " cell-wumpus"; content = "👾"
-                elif (r,c) == w.gold: cls += " cell-gold"; content = "💰"
+                if (r,c) in w["pits"]: content = "🕳️"
+                elif (r,c) == w["wumpus"]: content = "👾"
+                elif (r,c) == w["gold"]: content = "💰"
                 else:
                     percepts = get_percepts(r, c)
-                    icons = []
-                    if "Breeze" in percepts: icons.append("💨")
-                    if "Stench" in percepts: icons.append("🤢")
-                    content = f'<div class="percept-icon">{" ".join(icons)}</div>'
-            
+                    if "Breeze" in percepts: content = "💨"
+                    if "Stench" in percepts: content = "🤢"
             grid_html += f'<div class="{cls}">{content}</div>'
     grid_html += '</div>'
     st.markdown(grid_html, unsafe_allow_html=True)
 
-    # D-PAD CONTROLS
+    # D-PAD
     st.write("")
-    c1, c2, c3 = st.columns(3)
-    with c2: st.button("▲", key="up", on_click=move_agent, args=(1, 0))
-    c4, c5, c6 = st.columns(3)
-    with c4: st.button("◀", key="left", on_click=move_agent, args=(0, -1))
-    with c5: st.button("▼", key="down", on_click=move_agent, args=(-1, 0))
-    with c6: st.button("▶", key="right", on_click=move_agent, args=(0, 1))
+    mc1, mc2, mc3 = st.columns(3)
+    with mc2: st.button("▲", key="u", on_click=move_agent, args=(1,0))
+    mc4, mc5, mc6 = st.columns(3)
+    with mc4: st.button("◀", key="l", on_click=move_agent, args=(0,-1))
+    with mc5: st.button("▼", key="d", on_click=move_agent, args=(-1,0))
+    with mc6: st.button("▶", key="r_btn", on_click=move_agent, args=(0,1))
 
-# --- RIGHT: METRICS (SCREENSHOT STYLE) ---
-with col_stats:
-    st.markdown('<div class="side-panel">', unsafe_allow_html=True)
+with col_right:
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    curr_p = get_percepts(a["r"], a["c"])
+    p_text = ", ".join(curr_p) if curr_p else "None"
     
-    current_percepts = get_percepts(a.r, a.c)
-    percept_text = ", ".join(current_percepts) if current_percepts else "None"
-    
-    # Table layout matching your image
     metrics = [
-        ("Current Node", f"({a.r}, {a.c})"),
-        ("Active Percepts", percept_text),
-        ("Resolution Steps", str(a.steps)),
-        ("KB Clauses", str(a.kb_clauses))
+        ("Current Node", f"({a['r']}, {a['c']})"),
+        ("Active Percepts", p_text),
+        ("Resolution Steps", str(a["steps"])),
+        ("KB Clauses", str(a["kb"]))
     ]
     
-    for label, value in metrics:
-        st.markdown(f"""
-        <div class="metric-row">
-            <span class="metric-label">{label}</span>
-            <span class="metric-value">{value}</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("🏹 **Arrow:** Ready")
+    for label, val in metrics:
+        st.markdown(f'<div class="metric-row"><span class="metric-label">{label}</span><span class="metric-value">{val}</span></div>', unsafe_allow_html=True)
+    
+    st.markdown("<br>🏹 <b>Arrow:</b> Ready", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
