@@ -16,46 +16,54 @@ if "agent_pos" not in st.session_state:
     st.session_state.wumpus = (3, 3)
     st.session_state.gold = (4, 4)
 
-# 3. HIGH-VISIBILITY CSS
+# 3. FORCE LIGHT MODE & HIGH CONTRAST CSS
 st.markdown("""
 <style>
-    /* Force all text to be visible and dark */
-    .main, p, span, label, div {
-        color: #1e293b !important;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Force white background and black text everywhere */
+    .stApp { background-color: white !important; }
+    * { color: #000000 !important; font-family: 'Arial', sans-serif !important; }
+    
+    /* Panel Cards */
+    .card {
+        background: #ffffff !important;
+        padding: 15px;
+        border: 2px solid #000000 !important;
+        border-radius: 10px;
+        margin-bottom: 10px;
     }
 
-    /* GRID TILES */
-    .grid-box { display: grid; grid-template-columns: repeat(4, 70px); gap: 10px; justify-content: center; margin: 20px 0; }
+    /* Metrics Logic (Simplified Table) */
+    .metric-row {
+        display: flex; 
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #000000 !important;
+    }
+    .m-label { font-weight: normal !important; }
+    .m-value { font-weight: bold !important; }
+
+    /* Grid Tile Styles */
+    .grid-box { display: grid; grid-template-columns: repeat(4, 70px); gap: 10px; justify-content: center; }
     .tile {
-        width: 70px; height: 70px; border-radius: 10px; border: 2px solid #e2e8f0;
-        display: flex; align-items: center; justify-content: center; font-size: 24px; background: white;
+        width: 70px; height: 70px; border: 1px solid #000000 !important;
+        display: flex; align-items: center; justify-content: center; font-size: 24px; background: #ffffff;
     }
-    .tile-agent { background: #2563eb !important; color: white !important; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.5); }
-    .tile-visited { background: #f1f5f9; }
+    .tile-agent { background: #0055ff !important; color: white !important; }
+    .tile-visited { background: #eeeeee !important; }
 
-    /* BUTTONS: DARK BACKGROUND, BRIGHT WHITE TEXT */
+    /* BUTTONS: DARK BACKGROUND, WHITE TEXT */
     div.stButton > button {
-        background-color: #0f172a !important;
+        background-color: #000000 !important;
         color: #ffffff !important;
-        font-weight: 800 !important;
+        font-weight: bold !important;
         font-size: 16px !important;
-        border: none !important;
+        border: 2px solid #000000 !important;
         height: 50px !important;
         width: 100% !important;
         opacity: 1 !important;
     }
-    
-    /* SIDEBAR DATA STYLE */
-    .metric-row {
-        display: flex; justify-content: space-between;
-        padding: 10px 0; border-bottom: 1px solid #e2e8f0;
-    }
-    .m-label { font-weight: 500; color: #64748b !important; }
-    .m-value { font-weight: 700; color: #0f172a !important; }
+    div.stButton > button p { color: white !important; } /* Fix for Streamlit text rendering */
 
-    /* ICON BOXES */
-    .icon-box { background: white; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,7 +84,7 @@ def do_move(dr, dc):
         st.session_state.agent_pos = [nr, nc]
         st.session_state.visited.add((nr, nc))
         st.session_state.steps += 1
-        st.session_state.kb += random.randint(2, 5)
+        st.session_state.kb += 3
         pos = (nr, nc)
         if pos in st.session_state.pits:
             st.session_state.status = "DEAD (PIT)"; st.session_state.game_over = True
@@ -85,25 +93,22 @@ def do_move(dr, dc):
         elif pos == st.session_state.gold:
             st.session_state.status = "WINNER!"; st.session_state.game_over = True
 
-# 5. UI
+# 5. UI LAYOUT
 st.title("🏹 Wumpus World AI")
 
 c1, c2, c3 = st.columns([1, 1.2, 1])
 
 with c1:
-    st.subheader("Instructions")
-    st.markdown('<div class="icon-box">💨 <b>Breeze:</b> Pit nearby</div>', unsafe_allow_html=True)
-    st.markdown('<div class="icon-box">🤢 <b>Stench:</b> Wumpus nearby</div>', unsafe_allow_html=True)
-    st.markdown('<div class="icon-box">✨ <b>Glitter:</b> Gold is here</div>', unsafe_allow_html=True)
-    if st.button("🔄 RESET GAME"):
+    st.markdown('<div class="card"><b>Instructions</b><br>💨 Breeze: Pit near<br>🤢 Stench: Wumpus near<br>✨ Glitter: Gold here</div>', unsafe_allow_html=True)
+    if st.button("RESET GAME"):
         for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
 with c2:
     if st.session_state.game_over:
-        st.error(st.session_state.status) if "DEAD" in st.session_state.status else st.success("🏆 WINNER")
+        st.write(f"### {st.session_state.status}")
     else:
-        st.info("🤖 AI Currently Exploring...")
+        st.write("### AI Exploring...")
 
     # Grid
     grid_html = '<div class="grid-box">'
@@ -137,7 +142,7 @@ with c2:
     with r_btn: st.button("RIGHT", on_click=do_move, args=(0, 1))
 
 with c3:
-    st.subheader("Agent Data")
+    st.markdown('<div class="card"><b>Agent Data</b>', unsafe_allow_html=True)
     pos = st.session_state.agent_pos
     p_list = get_percepts(pos[0], pos[1])
     
@@ -151,5 +156,5 @@ with c3:
     for label, val in metrics:
         st.markdown(f'<div class="metric-row"><span class="m-label">{label}</span><span class="m-value">{val}</span></div>', unsafe_allow_html=True)
     
-    st.write("")
     st.write("🏹 **Arrow:** Ready")
+    st.markdown('</div>', unsafe_allow_html=True)
