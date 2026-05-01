@@ -61,21 +61,30 @@ class Agent:
         self.r, self.c = 1,1
         self.visited = {(1,1)}
         self.danger = set()
-        self.percepts = ["None"]
+        self.percepts = ["None"]   # IMPORTANT FIX
         self.hasGold = False
 
-# ---------------- INIT ----------------
-if "world" not in st.session_state:
+# ---------------- INIT SESSION ----------------
+def init_game():
     st.session_state.world = World()
     st.session_state.agent = Agent()
     st.session_state.steps = 0
     st.session_state.message = ""
+    st.session_state.game_over = False
+
+if "world" not in st.session_state:
+    init_game()
 
 world = st.session_state.world
 agent = st.session_state.agent
 
+# safety fix (prevents AttributeError)
+if "percepts" not in vars(agent):
+    agent.percepts = ["None"]
+
 # ---------------- LAYOUT ----------------
 st.title("🧠 Wumpus KB Agent")
+
 col1, col2 = st.columns([2,1])
 
 # ---------------- GRID ----------------
@@ -139,28 +148,50 @@ colA, colB = st.columns(2)
 
 with colA:
     if st.button("🎮 New Game"):
-        st.session_state.world = World()
-        st.session_state.agent = Agent()
-        st.session_state.steps = 0
-        st.session_state.message = ""
+        init_game()
         st.rerun()
 
 with colB:
-    if st.button("➡ Step Agent"):
-        # simple movement demo
-        moves = [(1,2),(2,1)]
-        move = random.choice(moves)
+    if st.button("➡ Step Agent") and not st.session_state.game_over:
 
-        agent.r, agent.c = move
-        agent.visited.add(move)
-        agent.percepts = ["Exploring..."]
+        # possible moves
+        moves = []
+        for dr,dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+            nr = agent.r + dr
+            nc = agent.c + dc
+            if 1 <= nr <= ROWS and 1 <= nc <= COLS:
+                moves.append((nr,nc))
 
-        st.session_state.steps += 1
-        st.session_state.message = f"Moved to {move}"
+        if not moves:
+            st.session_state.message = "⚠ No moves"
+            st.session_state.game_over = True
+        else:
+            move = random.choice(moves)
 
-        if move == world.gold:
-            agent.hasGold = True
-            agent.percepts = ["✨ Gold Found!"]
+            agent.r, agent.c = move
+            agent.visited.add(move)
+            st.session_state.steps += 1
+
+            # check events
+            if move in world.pits:
+                agent.percepts = ["💀 Fell into Pit"]
+                st.session_state.message = "Game Over"
+                st.session_state.game_over = True
+
+            elif move == world.wumpus and world.wumpusAlive:
+                agent.percepts = ["💀 Eaten by Wumpus"]
+                st.session_state.message = "Game Over"
+                st.session_state.game_over = True
+
+            elif move == world.gold:
+                agent.hasGold = True
+                agent.percepts = ["✨ Gold Found!"]
+                st.session_state.message = "🏆 You Win!"
+                st.session_state.game_over = True
+
+            else:
+                agent.percepts = ["Exploring..."]
+                st.session_state.message = f"Moved to {move}"
 
         st.rerun()
 
