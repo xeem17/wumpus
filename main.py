@@ -5,25 +5,26 @@ st.set_page_config(layout="wide")
 
 ROWS, COLS = 4, 4
 
-# ---------------- LIGHT UI CSS ----------------
+# ---------------- WHITE THEME CSS ----------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 body {
-    background: linear-gradient(135deg, #f7f9fc, #eef3ff);
+    background: #f6f8fc;
     font-family: 'Inter', sans-serif;
-    color: #1f2a44;
+    color: #1e2a3a;
 }
 
+/* TITLE */
 .title {
     font-size: 34px;
     font-weight: 700;
-    color: #2b3a67;
+    color: #2b3a55;
 }
 
 .subtitle {
-    color: #5b6b8c;
+    color: #6b7a99;
     margin-bottom: 15px;
 }
 
@@ -34,6 +35,7 @@ body {
     gap: 12px;
 }
 
+/* BASE CELL */
 .cell {
     height: 85px;
     border-radius: 12px;
@@ -42,26 +44,30 @@ body {
     justify-content:center;
     font-size:18px;
     background: white;
-    border: 1px solid #d9e2ef;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    border: 1px solid #e5eaf2;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 }
 
+/* AGENT (soft blue) */
 .agent {
-    background: #4f8cff;
-    color: white;
+    background: #dbeafe;
+    border: 1px solid #93c5fd;
 }
 
+/* SAFE (soft green) */
 .safe {
-    background: #e8f5e9;
+    background: #dcfce7;
 }
 
+/* DANGER (soft red) */
 .danger {
-    background: #ffeaea;
+    background: #fee2e2;
 }
 
+/* GOLD (soft yellow) */
 .gold {
-    background: #fff6cc;
-    border: 2px solid #f4c542;
+    background: #fff7cc;
+    border: 1px solid #facc15;
 }
 
 /* PANEL */
@@ -69,33 +75,41 @@ body {
     background: white;
     padding: 18px;
     border-radius: 14px;
-    border: 1px solid #e3e9f5;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e5eaf2;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
 }
 
 .metric {
     margin-bottom: 8px;
-    color: #3a4a6b;
+    color: #334155;
 }
 
 .value {
     font-weight: 600;
-    color: #1f2a44;
+    color: #1e2a3a;
 }
 
+/* PERCEPT BOX */
 .percept-box {
-    background: #f4f7ff;
+    background: #f1f5ff;
+    border: 1px solid #dbeafe;
     padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #dbe6ff;
+    border-radius: 10px;
+    color: #334155;
 }
 
+/* BUTTONS */
 .stButton>button {
-    background: #4f8cff;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
     color: white;
     border-radius: 10px;
     height: 45px;
     border: none;
+    font-weight: 600;
+}
+
+.stButton>button:hover {
+    opacity: 0.9;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -122,8 +136,8 @@ def init_game():
     st.session_state.steps = 0
     st.session_state.status = "EXPLORING"
     st.session_state.game_over = False
-    st.session_state.kb = 14
     st.session_state.steps_logical = 16
+    st.session_state.kb = 14
 
 if "world" not in st.session_state:
     init_game()
@@ -131,31 +145,28 @@ if "world" not in st.session_state:
 world = st.session_state.world
 agent = st.session_state.agent
 
-# ---------------- PERCEPT FUNCTION ----------------
+# ---------------- PERCEPTS ----------------
 def get_percepts(r, c):
-    percepts = []
+    p = []
 
-    # Breeze (near pit)
     for pr, pc in world.pits:
         if abs(pr - r) + abs(pc - c) == 1:
-            percepts.append("Breeze")
+            p.append("Breeze")
 
-    # Stench (near wumpus)
     if abs(world.wumpus[0] - r) + abs(world.wumpus[1] - c) == 1:
-        percepts.append("Stench")
+        p.append("Stench")
 
-    # Glitter (gold nearby or same cell)
     if (r, c) == world.gold:
-        percepts.append("Glitter")
+        p.append("Glitter")
 
-    if not percepts:
-        percepts.append("Safe")
+    if not p:
+        p.append("Safe")
 
-    return percepts
+    return p
 
 # ---------------- HEADER ----------------
 st.markdown('<div class="title">WUMPUS WORLD</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Knowledge-Based Agent Simulation</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">White Theme Knowledge-Based Agent</div>', unsafe_allow_html=True)
 
 # ---------------- STATUS ----------------
 status = st.session_state.get("status", "EXPLORING")
@@ -185,7 +196,6 @@ with col1:
                 cls += " safe"
                 text = ""
             else:
-                cls += ""
                 text = ""
 
             if (r,c) in world.pits:
@@ -203,7 +213,7 @@ with col1:
     grid_html += "</div>"
     st.markdown(grid_html, unsafe_allow_html=True)
 
-# ---------------- UPDATE PERCEPTS ----------------
+# update percepts
 agent.percepts = get_percepts(agent.r, agent.c)
 
 # ---------------- SIDE PANEL ----------------
@@ -227,7 +237,7 @@ with col2:
 colA, colB = st.columns(2)
 
 with colA:
-    if st.button("🔄 Reset"):
+    if st.button("🔄 Reset Game"):
         init_game()
         st.rerun()
 
@@ -245,13 +255,16 @@ with colB:
 
         st.session_state.steps_logical += 1
 
-        if (agent.r, agent.c) == world.pits or (agent.r, agent.c) == world.wumpus:
+        if (agent.r, agent.c) == world.pits:
+            st.session_state.status = "DEAD"
+            st.session_state.game_over = True
+
+        if (agent.r, agent.c) == world.wumpus:
             st.session_state.status = "DEAD"
             st.session_state.game_over = True
 
         if (agent.r, agent.c) == world.gold:
             st.session_state.status = "WIN"
-            agent.hasGold = True
             st.session_state.game_over = True
 
         st.rerun()
