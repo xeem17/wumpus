@@ -5,89 +5,97 @@ st.set_page_config(layout="wide")
 
 ROWS, COLS = 4, 4
 
-# ---------------- CSS ----------------
+# ---------------- LIGHT UI CSS ----------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 body {
-    background: radial-gradient(circle at top, #1a0f2e, #0d0a0e);
-    color: #e8dcc8;
+    background: linear-gradient(135deg, #f7f9fc, #eef3ff);
     font-family: 'Inter', sans-serif;
+    color: #1f2a44;
 }
 
 .title {
-    font-family: 'Cinzel', serif;
     font-size: 34px;
-    color: #d4a843;
-    letter-spacing: 2px;
+    font-weight: 700;
+    color: #2b3a67;
 }
 
 .subtitle {
-    color: #8a7aa0;
-    margin-bottom: 20px;
+    color: #5b6b8c;
+    margin-bottom: 15px;
 }
 
+/* GRID */
 .grid {
     display: grid;
-    grid-template-columns: repeat(4, 90px);
-    gap: 14px;
+    grid-template-columns: repeat(4, 85px);
+    gap: 12px;
 }
 
 .cell {
-    height: 90px;
-    border-radius: 14px;
+    height: 85px;
+    border-radius: 12px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:20px;
-    border:1px solid #2a2038;
+    font-size:18px;
+    background: white;
+    border: 1px solid #d9e2ef;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
 .agent {
-    background:#2a1a40;
-    border-color:#6a3acc;
-    box-shadow:0 0 18px rgba(106,58,204,0.6);
-    color:#fff;
+    background: #4f8cff;
+    color: white;
 }
 
-.safe { background:#1a2820; }
-.unknown { background:#1c1628; }
-.danger { background:#2a1515; color:#ff8080; }
+.safe {
+    background: #e8f5e9;
+}
+
+.danger {
+    background: #ffeaea;
+}
+
 .gold {
-    background:#2a2210;
-    border-color:#8c7030;
-    box-shadow:0 0 12px rgba(212,168,67,0.4);
+    background: #fff6cc;
+    border: 2px solid #f4c542;
 }
 
+/* PANEL */
 .panel {
-    background:#13101a;
-    padding:20px;
-    border-radius:14px;
-    border:1px solid #2a2038;
+    background: white;
+    padding: 18px;
+    border-radius: 14px;
+    border: 1px solid #e3e9f5;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
 .metric {
     margin-bottom: 8px;
-    color:#b8a8c8;
+    color: #3a4a6b;
 }
 
 .value {
-    font-family:'Cinzel';
-    color:#d4a843;
+    font-weight: 600;
+    color: #1f2a44;
+}
+
+.percept-box {
+    background: #f4f7ff;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #dbe6ff;
 }
 
 .stButton>button {
-    background: linear-gradient(135deg,#3a1e6e,#5a2e9e);
-    color:white;
-    border-radius:10px;
-    height:50px;
-    font-weight:bold;
-    border:none;
-}
-
-.stButton>button:hover {
-    background: linear-gradient(135deg,#4a2a8e,#6a3abe);
+    background: #4f8cff;
+    color: white;
+    border-radius: 10px;
+    height: 45px;
+    border: none;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -104,37 +112,50 @@ class Agent:
     def __init__(self):
         self.r, self.c = 1, 1
         self.visited = {(1,1)}
-        self.danger = set()
-        self.percepts = ["None"]
         self.hasGold = False
+        self.percepts = ["None"]
 
-# ---------------- INIT GAME ----------------
+# ---------------- INIT ----------------
 def init_game():
     st.session_state.world = World()
     st.session_state.agent = Agent()
     st.session_state.steps = 0
-    st.session_state.game_over = False
     st.session_state.status = "EXPLORING"
+    st.session_state.game_over = False
+    st.session_state.kb = 14
+    st.session_state.steps_logical = 16
 
-# ---------------- SAFE SESSION INIT ----------------
 if "world" not in st.session_state:
     init_game()
-
-if "status" not in st.session_state:
-    st.session_state.status = "EXPLORING"
-
-if "game_over" not in st.session_state:
-    st.session_state.game_over = False
-
-if "steps" not in st.session_state:
-    st.session_state.steps = 0
 
 world = st.session_state.world
 agent = st.session_state.agent
 
+# ---------------- PERCEPT FUNCTION ----------------
+def get_percepts(r, c):
+    percepts = []
+
+    # Breeze (near pit)
+    for pr, pc in world.pits:
+        if abs(pr - r) + abs(pc - c) == 1:
+            percepts.append("Breeze")
+
+    # Stench (near wumpus)
+    if abs(world.wumpus[0] - r) + abs(world.wumpus[1] - c) == 1:
+        percepts.append("Stench")
+
+    # Glitter (gold nearby or same cell)
+    if (r, c) == world.gold:
+        percepts.append("Glitter")
+
+    if not percepts:
+        percepts.append("Safe")
+
+    return percepts
+
 # ---------------- HEADER ----------------
 st.markdown('<div class="title">WUMPUS WORLD</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Knowledge-Based Agent</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Knowledge-Based Agent Simulation</div>', unsafe_allow_html=True)
 
 # ---------------- STATUS ----------------
 status = st.session_state.get("status", "EXPLORING")
@@ -146,60 +167,59 @@ elif status == "DEAD":
 else:
     st.info("🟢 EXPLORING")
 
-col1, col2 = st.columns([2, 1])
+col1, col2 = st.columns([2,1])
 
 # ---------------- GRID ----------------
 with col1:
     grid_html = '<div class="grid">'
 
     for r in range(ROWS, 0, -1):
-        for c in range(1, COLS + 1):
+        for c in range(1, COLS+1):
 
-            cls = "cell unknown"
-            text = ""
+            cls = "cell"
 
-            if (r, c) == (agent.r, agent.c):
-                cls = "cell agent"
-                text = "⚔"
-            elif (r, c) in agent.visited:
-                cls = "cell safe"
-            elif (r, c) in agent.danger:
+            if (r,c) == (agent.r, agent.c):
+                cls += " agent"
+                text = "🤖"
+            elif (r,c) in agent.visited:
+                cls += " safe"
+                text = ""
+            else:
+                cls += ""
+                text = ""
+
+            if (r,c) in world.pits:
                 cls = "cell danger"
-                text = "?"
-
-            if (r, c) == world.gold and agent.hasGold:
+                text = "P"
+            if (r,c) == world.wumpus:
+                cls = "cell danger"
+                text = "W"
+            if (r,c) == world.gold:
                 cls = "cell gold"
-                text = "✦"
+                text = "G"
 
             grid_html += f'<div class="{cls}">{text}</div>'
 
     grid_html += "</div>"
     st.markdown(grid_html, unsafe_allow_html=True)
 
+# ---------------- UPDATE PERCEPTS ----------------
+agent.percepts = get_percepts(agent.r, agent.c)
+
 # ---------------- SIDE PANEL ----------------
 with col2:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
 
-    st.markdown(f"<div class='metric'>Steps: <span class='value'>{st.session_state.steps}</span></div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='metric'>Position: <span class='value'>({agent.r},{agent.c})</span></div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='metric'>Arrow: <span class='value'>READY</span></div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='metric'>Gold: <span class='value'>{'FOUND' if agent.hasGold else 'Not Found'}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric'>Current Node: <span class='value'>({agent.r}, {agent.c})</span></div>", unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown("Active Percepts")
+    st.markdown(f"<div class='percept-box'>{', '.join(agent.percepts)}</div>", unsafe_allow_html=True)
 
-    st.markdown("**Current Percepts**")
-    st.markdown(f"""
-    <div style="
-        background:#0d0a14;
-        border:1px solid #2a2038;
-        padding:10px;
-        border-radius:8px;
-        color:#a898c8;
-        font-style:italic;
-    ">
-        {", ".join(agent.percepts)}
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div class='metric'>Resolution Steps: <span class='value'>{st.session_state.steps_logical}</span></div>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='metric'>KB Clauses: <span class='value'>{st.session_state.kb}</span></div>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='metric'>🏹 Arrow: <span class='value'>Ready</span></div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -207,42 +227,31 @@ with col2:
 colA, colB = st.columns(2)
 
 with colA:
-    if st.button("🔄 New Game"):
+    if st.button("🔄 Reset"):
         init_game()
         st.rerun()
 
 with colB:
-    if st.button("➡ Step Agent") and not st.session_state.game_over:
+    if st.button("➡ Move Agent") and not st.session_state.game_over:
 
         moves = []
         for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
             nr, nc = agent.r + dr, agent.c + dc
             if 1 <= nr <= ROWS and 1 <= nc <= COLS:
-                moves.append((nr, nc))
+                moves.append((nr,nc))
 
-        move = random.choice(moves)
+        agent.r, agent.c = random.choice(moves)
+        agent.visited.add((agent.r, agent.c))
 
-        agent.r, agent.c = move
-        agent.visited.add(move)
-        st.session_state.steps += 1
+        st.session_state.steps_logical += 1
 
-        if move in world.pits:
-            agent.percepts = ["Fell into Pit"]
-            st.session_state.game_over = True
+        if (agent.r, agent.c) == world.pits or (agent.r, agent.c) == world.wumpus:
             st.session_state.status = "DEAD"
-
-        elif move == world.wumpus:
-            agent.percepts = ["Eaten by Wumpus"]
             st.session_state.game_over = True
-            st.session_state.status = "DEAD"
 
-        elif move == world.gold:
-            agent.hasGold = True
-            agent.percepts = ["Gold Found!"]
-            st.session_state.game_over = True
+        if (agent.r, agent.c) == world.gold:
             st.session_state.status = "WIN"
-
-        else:
-            agent.percepts = ["Exploring..."]
+            agent.hasGold = True
+            st.session_state.game_over = True
 
         st.rerun()
