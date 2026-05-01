@@ -1,29 +1,49 @@
 import streamlit as st
 import random
 
+st.set_page_config(layout="wide")
+
 ROWS, COLS = 4, 4
 
-# ---------------- CUSTOM CSS ----------------
+# ---------------- DARK THEME CSS ----------------
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Inter:wght@400;500&display=swap');
+
 body {
-    background: linear-gradient(135deg, #eef2ff, #f8fafc);
+    background: radial-gradient(circle at top, #1a0f2e, #0d0a0e);
+    color: #e8dcc8;
+    font-family: 'Inter', sans-serif;
 }
 
+.title {
+    font-family: 'Cinzel', serif;
+    font-size: 34px;
+    color: #d4a843;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    color: #8a7aa0;
+    margin-bottom: 20px;
+}
+
+/* GRID */
 .grid {
     display: grid;
-    grid-template-columns: repeat(4, 80px);
-    gap: 12px;
+    grid-template-columns: repeat(4, 90px);
+    gap: 14px;
 }
 
 .cell {
-    height: 80px;
-    border-radius: 12px;
+    height: 90px;
+    border-radius: 14px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-weight:bold;
     font-size:20px;
+    position: relative;
+    border:1px solid #2a2038;
     transition: 0.2s;
 }
 
@@ -31,18 +51,64 @@ body {
     transform: scale(1.05);
 }
 
-/* states */
-.agent { background:#3b82f6; color:white; }
-.safe { background:#bbf7d0; }
-.unknown { background:#e5e7eb; }
-.danger { background:#fecaca; }
-.gold { background:#fde68a; }
+/* STATES */
+.agent {
+    background:#2a1a40;
+    border-color:#6a3acc;
+    box-shadow:0 0 18px rgba(106,58,204,0.6);
+    color:#fff;
+}
 
+.safe {
+    background:#1a2820;
+}
+
+.unknown {
+    background:#1c1628;
+}
+
+.danger {
+    background:#2a1515;
+    color:#ff8080;
+}
+
+.gold {
+    background:#2a2210;
+    border-color:#8c7030;
+    box-shadow:0 0 12px rgba(212,168,67,0.4);
+}
+
+/* SIDE PANEL */
 .panel {
-    background:white;
-    padding:15px;
-    border-radius:12px;
-    box-shadow:0 4px 10px rgba(0,0,0,0.05);
+    background:#13101a;
+    padding:20px;
+    border-radius:14px;
+    border:1px solid #2a2038;
+}
+
+.metric {
+    font-size:14px;
+    margin-bottom:10px;
+    color:#b8a8c8;
+}
+
+.value {
+    font-family:'Cinzel';
+    color:#d4a843;
+}
+
+/* BUTTONS */
+.stButton>button {
+    background: linear-gradient(135deg,#3a1e6e,#5a2e9e);
+    color:white;
+    border-radius:10px;
+    height:50px;
+    font-weight:bold;
+    border:none;
+}
+
+.stButton>button:hover {
+    background: linear-gradient(135deg,#4a2a8e,#6a3abe);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -61,10 +127,10 @@ class Agent:
         self.r, self.c = 1,1
         self.visited = {(1,1)}
         self.danger = set()
-        self.percepts = ["None"]   # IMPORTANT FIX
+        self.percepts = ["None"]
         self.hasGold = False
 
-# ---------------- INIT SESSION ----------------
+# ---------------- INIT ----------------
 def init_game():
     st.session_state.world = World()
     st.session_state.agent = Agent()
@@ -78,68 +144,49 @@ if "world" not in st.session_state:
 world = st.session_state.world
 agent = st.session_state.agent
 
-# safety fix (prevents AttributeError)
-if "percepts" not in vars(agent):
-    agent.percepts = ["None"]
-
-# ---------------- LAYOUT ----------------
-st.title("🧠 Wumpus KB Agent")
+# ---------------- HEADER ----------------
+st.markdown('<div class="title">WUMPUS WORLD</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Knowledge-Based Agent</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns([2,1])
 
 # ---------------- GRID ----------------
 with col1:
-    st.subheader("Environment")
-
     grid_html = '<div class="grid">'
+
     for r in range(ROWS, 0, -1):
         for c in range(1, COLS+1):
 
-            classes = "cell unknown"
+            cls = "cell unknown"
             text = ""
 
             if (r,c) == (agent.r, agent.c):
-                classes = "cell agent"
-                text = "A"
+                cls = "cell agent"
+                text = "⚔"
             elif (r,c) in agent.visited:
-                classes = "cell safe"
+                cls = "cell safe"
             elif (r,c) in agent.danger:
-                classes = "cell danger"
-                text = "✕"
+                cls = "cell danger"
+                text = "?"
 
             if (r,c) == world.gold and agent.hasGold:
-                classes = "cell gold"
-                text = "G"
+                cls = "cell gold"
+                text = "✦"
 
-            grid_html += f'<div class="{classes}">{text}</div>'
+            grid_html += f'<div class="{cls}">{text}</div>'
 
     grid_html += "</div>"
-
     st.markdown(grid_html, unsafe_allow_html=True)
 
-# ---------------- SIDE PANEL ----------------
+# ---------------- PANEL ----------------
 with col2:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
 
-    st.subheader("📊 Session")
+    st.markdown(f'<div class="metric">Steps: <span class="value">{st.session_state.steps}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric">Position: <span class="value">({agent.r},{agent.c})</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric">Percepts: <span class="value">{", ".join(agent.percepts)}</span></div>', unsafe_allow_html=True)
 
-    st.write("**Position:**", (agent.r, agent.c))
-    st.write("**Percepts:**", ", ".join(agent.percepts))
-    st.write("**Steps:**", st.session_state.steps)
-
-    st.markdown("---")
-
-    st.subheader("🏹 Status")
-    st.success("Arrow Ready")
-
-    st.markdown("---")
-
-    st.subheader("🎯 Legend")
-    st.write("🟦 Agent")
-    st.write("🟩 Safe")
-    st.write("⬜ Unknown")
-    st.write("🟥 Danger")
-    st.write("🟨 Gold")
+    st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -147,54 +194,39 @@ with col2:
 colA, colB = st.columns(2)
 
 with colA:
-    if st.button("🎮 New Game"):
+    if st.button("🔄 New Game"):
         init_game()
         st.rerun()
 
 with colB:
     if st.button("➡ Step Agent") and not st.session_state.game_over:
 
-        # possible moves
         moves = []
         for dr,dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-            nr = agent.r + dr
-            nc = agent.c + dc
+            nr, nc = agent.r+dr, agent.c+dc
             if 1 <= nr <= ROWS and 1 <= nc <= COLS:
                 moves.append((nr,nc))
 
-        if not moves:
-            st.session_state.message = "⚠ No moves"
+        move = random.choice(moves)
+
+        agent.r, agent.c = move
+        agent.visited.add(move)
+        st.session_state.steps += 1
+
+        if move in world.pits:
+            agent.percepts = ["Fell into Pit"]
             st.session_state.game_over = True
+
+        elif move == world.wumpus:
+            agent.percepts = ["Eaten by Wumpus"]
+            st.session_state.game_over = True
+
+        elif move == world.gold:
+            agent.hasGold = True
+            agent.percepts = ["Gold Found!"]
+            st.session_state.game_over = True
+
         else:
-            move = random.choice(moves)
-
-            agent.r, agent.c = move
-            agent.visited.add(move)
-            st.session_state.steps += 1
-
-            # check events
-            if move in world.pits:
-                agent.percepts = ["💀 Fell into Pit"]
-                st.session_state.message = "Game Over"
-                st.session_state.game_over = True
-
-            elif move == world.wumpus and world.wumpusAlive:
-                agent.percepts = ["💀 Eaten by Wumpus"]
-                st.session_state.message = "Game Over"
-                st.session_state.game_over = True
-
-            elif move == world.gold:
-                agent.hasGold = True
-                agent.percepts = ["✨ Gold Found!"]
-                st.session_state.message = "🏆 You Win!"
-                st.session_state.game_over = True
-
-            else:
-                agent.percepts = ["Exploring..."]
-                st.session_state.message = f"Moved to {move}"
+            agent.percepts = ["Exploring..."]
 
         st.rerun()
-
-# ---------------- STATUS ----------------
-if st.session_state.message:
-    st.info(st.session_state.message)
